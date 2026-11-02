@@ -1,0 +1,240 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-nunito-sans);
+  --font-serif: var(--font-fraunces);
+  --font-mono: ui-monospace, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Brand accent colors, deliberately kept separate from --accent (see note below). */
+  --color-terracotta: var(--terracotta);
+  --color-terracotta-foreground: var(--terracotta-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  /* Dashboard data-viz + status tokens (see note on :root). */
+  --color-viz-1: var(--viz-1);
+  --color-viz-2: var(--viz-2);
+  --color-viz-3: var(--viz-3);
+  --color-viz-4: var(--viz-4);
+  --color-viz-5: var(--viz-5);
+  --color-viz-compare: var(--viz-compare);
+  --color-viz-grid: var(--viz-grid);
+  --color-good: var(--good);
+  --color-warning: var(--warning);
+  --color-critical: var(--critical);
+  --color-info: var(--info);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/*
+ * FarmMarket "Rustic & Warm" palette: cream/parchment background, deep
+ * forest-green primary, warm tan secondary/muted, terracotta + harvest-gold
+ * brand accents.
+ *
+ * --accent stays a soft tan tint (not terracotta) because shadcn uses it as
+ * the structural hover/highlight background for menu items, select options,
+ * etc. (dropdown-menu.tsx, select.tsx, "hover:bg-accent" throughout) — a
+ * saturated terracotta there would be too loud for every hover state.
+ * Terracotta and gold are exposed instead as their own utilities
+ * (bg-terracotta, text-terracotta, bg-gold, text-gold) for deliberate brand
+ * moments: CTAs, badges, highlighted banners. Do not fold them into --accent.
+ */
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.974 0.014 88.7);
+  --foreground: oklch(0.257 0.022 63.6);
+  --card: oklch(0.994 0.008 91.5);
+  --card-foreground: oklch(0.257 0.022 63.6);
+  --popover: oklch(0.994 0.008 91.5);
+  --popover-foreground: oklch(0.257 0.022 63.6);
+  --primary: oklch(0.444 0.059 149.9);
+  --primary-foreground: oklch(0.974 0.014 88.7);
+  --secondary: oklch(0.927 0.027 85.7);
+  --secondary-foreground: oklch(0.257 0.022 63.6);
+  --muted: oklch(0.927 0.027 85.7);
+  --muted-foreground: oklch(0.505 0.031 78.0); /* darkened from 0.544 for AA contrast on --background */
+  --accent: oklch(0.924 0.031 79.9);
+  --accent-foreground: oklch(0.257 0.022 63.6);
+  --destructive: oklch(0.543 0.174 29.7);
+  --border: oklch(0.877 0.034 82.0);
+  --input: oklch(0.842 0.043 82.5);
+  --ring: oklch(0.444 0.059 149.9);
+  --terracotta: oklch(0.605 0.135 48.3);
+  --terracotta-foreground: oklch(0.994 0.008 91.5);
+  --gold: oklch(0.751 0.130 79.8);
+  --gold-foreground: oklch(0.257 0.022 63.6);
+  --chart-1: oklch(0.444 0.059 149.9);
+  --chart-2: oklch(0.605 0.135 48.3);
+  --chart-3: oklch(0.751 0.130 79.8);
+  --chart-4: oklch(0.619 0.063 149.9);
+  --chart-5: oklch(0.482 0.099 45.1);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  /*
+   * Dashboard categorical palette. The brand --chart-* ramp is too muted to
+   * separate series (it fails the chroma floor), so charts use these steps of
+   * the same forest / sky / terracotta / plum / harvest hues instead. Order is
+   * deliberate: it passes adjacent-pair colour-vision-deficiency checks in
+   * both themes. Assign in this order, never by rank, and never past 5.
+   */
+  --viz-1: #2d7b44;
+  --viz-2: #106eab;
+  --viz-3: #c65d26;
+  --viz-4: #953d7c;
+  --viz-5: #bb8603;
+  --viz-compare: #b4a991; /* previous-period / baseline series */
+  --viz-grid: oklch(0.877 0.034 82 / 0.6);
+  /* Status colours: only for meaning (good / warning / critical), always with an icon or label. */
+  --good: #1f7a4d;
+  --warning: #b45f06;
+  --critical: var(--destructive);
+  --info: #106eab;
+}
+
+.dark {
+  --background: oklch(0.231 0.017 74.7);
+  --foreground: oklch(0.945 0.021 85.9);
+  --card: oklch(0.269 0.020 76.5);
+  --card-foreground: oklch(0.945 0.021 85.9);
+  --popover: oklch(0.269 0.020 76.5);
+  --popover-foreground: oklch(0.945 0.021 85.9);
+  --primary: oklch(0.619 0.063 149.9);
+  --primary-foreground: oklch(0.196 0.017 70.9);
+  --secondary: oklch(0.294 0.022 75.5);
+  --secondary-foreground: oklch(0.945 0.021 85.9);
+  --muted: oklch(0.294 0.022 75.5);
+  --muted-foreground: oklch(0.743 0.037 81.2);
+  --accent: oklch(0.321 0.027 82.9);
+  --accent-foreground: oklch(0.945 0.021 85.9);
+  --destructive: oklch(0.620 0.154 28.5);
+  --border: oklch(0.333 0.027 83.0);
+  --input: oklch(0.333 0.027 83.0);
+  --ring: oklch(0.619 0.063 149.9);
+  --terracotta: oklch(0.714 0.127 53.1);
+  --terracotta-foreground: oklch(0.196 0.017 70.9);
+  --gold: oklch(0.751 0.130 79.8);
+  --gold-foreground: oklch(0.196 0.017 70.9);
+  --chart-1: oklch(0.619 0.063 149.9);
+  --chart-2: oklch(0.714 0.127 53.1);
+  --chart-3: oklch(0.751 0.130 79.8);
+  --chart-4: oklch(0.444 0.059 149.9);
+  --chart-5: oklch(0.482 0.099 45.1);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --viz-1: #4a9a5e;
+  --viz-2: #398ccc;
+  --viz-3: #d37040;
+  --viz-4: #b55b9a;
+  --viz-5: #b98918;
+  --viz-compare: #6f6556;
+  --viz-grid: oklch(0.333 0.027 83 / 0.8);
+  --good: #5cb27c;
+  --warning: #e0a050;
+  --critical: var(--destructive);
+  --info: #5aa6db;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/*
+ * Storefront additions. --forest is the deep green of the announcement bar
+ * and footer; --olive is a muted accent for farm names and locations (dark
+ * enough for small text on the cream background).
+ */
+@theme inline {
+  --color-forest: var(--forest);
+  --color-forest-foreground: var(--forest-foreground);
+  --color-olive: var(--olive);
+}
+
+:root {
+  --forest: oklch(0.315 0.045 152);
+  --forest-foreground: oklch(0.955 0.02 88);
+  --olive: oklch(0.47 0.075 122);
+}
+
+.dark {
+  --forest: oklch(0.205 0.03 152);
+  --forest-foreground: oklch(0.945 0.021 85.9);
+  --olive: oklch(0.74 0.08 122);
+}
+
+/* Page container shared by every storefront section. */
+@utility shell {
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+  @media (width >= 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+/* Horizontal shelves on small screens: scroll without a visible bar. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

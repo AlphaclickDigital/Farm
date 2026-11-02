@@ -1,0 +1,31 @@
+# Dependencies & build output
+node_modules/
+dist/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Local Claude Code settings (machine-specific, may contain credentials)
+.claude/settings.local.json
+
+# Test artifacts
+test-results/
+playwright-report/
+e2e-results*/
+
+# Logs
+*.log
+
+# Windows reserved-name artifact
+/nul
+
+# OS / editor
+.DS_Store
+Thumbs.db

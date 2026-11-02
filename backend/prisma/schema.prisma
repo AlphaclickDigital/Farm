@@ -1,0 +1,502 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  VENDOR
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PromotionType {
+  FEATURED_PRODUCT
+  FEATURED_VENDOR
+}
+
+enum PromotionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum ShippingMethodType {
+  FLAT_RATE
+  WEIGHT_BASED
+  PICKUP
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String   @unique
+  password  String?
+  role      Role     @default(CUSTOMER)
+
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  vendor    Vendor?
+  orders    Order[]
+  reviews   Review[]
+  passwordResetTokens PasswordResetToken[]
+  notifications       Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role, createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model Vendor {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  storeName   String
+  description String?
+  photo       String?
+  coverPhoto  String?
+  location    String?  // town / region, e.g. "Yarra Valley"
+  state       String?  // Australian state or territory code, e.g. "VIC"
+  phone       String?  // public business contact number
+  isApproved      Boolean  @default(false)
+  isSuspended     Boolean  @default(false)
+  suspendedReason String?
+
+  stripeAccount   StripeAccount?
+  products        Product[]
+  orders          VendorOrder[]
+  promotions      Promotion[]
+  reviews         Review[]
+  shippingOptions VendorShippingOption[]
+  payouts         Payout[]
+  productViews    ProductViewDaily[]
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isApproved, isSuspended])
+  @@index([state])
+}
+
+model StripeAccount {
+  id                  String  @id @default(uuid())
+  vendorId            String  @unique
+  stripeAccountId     String  @unique
+  chargesEnabled      Boolean @default(false)
+  payoutsEnabled      Boolean @default(false)
+  detailsSubmitted    Boolean @default(false)
+  onboardingComplete  Boolean @default(false)
+
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id       String   @id @default(uuid())
+  name     String
+  slug     String   @unique
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  vendorId    String
+  categoryId  String
+
+  name        String
+  slug        String
+  description String?
+  baseUnit    String   // gram, ml, piece
+  stockAmount Int      // stored in base unit
+  isActive    Boolean  @default(true)
+
+  discountName   String?
+  discountCents  Int?
+  discountEndsAt DateTime?
+
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
+  images      ProductImage[]
+  variants    ProductVariant[]
+  orderItems  OrderItem[]
+  promotions  Promotion[]
+  reviews     Review[]
+  views       ProductViewDaily[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendorId, slug])
+  @@index([categoryId])
+}
+
+model ProductVariant {
+  id          String  @id @default(uuid())
+  productId   String
+  label       String  // "500g Pack", "1kg Pack", "Dozen Eggs"
+  unitAmount  Int     // how much base unit this uses
+  priceCents  Int
+  weightGrams Int?    // per-variant shippable weight; used by WEIGHT_BASED shipping
+  isActive    Boolean @default(true)
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+model ProductImage {
+  id        String @id @default(uuid())
+  productId String
+  url       String
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model VendorShippingOption {
+  id              String             @id @default(uuid())
+  vendorId        String
+  name            String  // "Standard Shipping", "Express Shipping"
+  description     String?
+  type            ShippingMethodType @default(FLAT_RATE)
+  flatRateCents   Int?    // only meaningful when type = FLAT_RATE
+  minOrderCents   Int?    // free shipping threshold; applies to all types except PICKUP (already free)
+  estimatedDays   String  // "3-5 business days"
+  isActive        Boolean @default(true)
+
+  vendor       Vendor               @relation(fields: [vendorId], references: [id])
+  weightTiers  ShippingWeightTier[]
+  vendorOrders VendorOrder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShippingWeightTier {
+  id               String @id @default(uuid())
+  shippingOptionId String
+  minGrams         Int    // inclusive lower bound; always derived server-side, never client-supplied
+  maxGrams         Int?   // exclusive upper bound; null = open-ended top tier ("and above")
+  priceCents       Int
+
+  shippingOption VendorShippingOption @relation(fields: [shippingOptionId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  userId           String
+  stripePaymentId  String      @unique
+  totalAmountCents Int
+  shippingCents    Int         @default(0)
+  status           OrderStatus @default(PAID)
+
+  shippingName    String?
+  shippingAddress String?
+  shippingCity    String?
+  shippingState   String?
+  shippingZip     String?
+  shippingPhone   String?
+
+  user        User          @relation(fields: [userId], references: [id])
+  vendorOrders VendorOrder[]
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model VendorOrder {
+  id               String      @id @default(uuid())
+  orderId          String
+  vendorId         String
+  subtotalCents    Int
+  commissionCents  Int
+  payoutCents      Int
+  shippingCents    Int         @default(0)
+  shippingMethod   String?
+  shippingOptionId String?
+  trackingNumber   String?
+  trackingUrl      String?
+  status           OrderStatus @default(PROCESSING)
+  payoutId         String?
+  stripeRefundId   String?
+  refundedAt       DateTime?
+
+  order          Order                 @relation(fields: [orderId], references: [id])
+  vendor         Vendor                @relation(fields: [vendorId], references: [id])
+  shippingOption VendorShippingOption? @relation(fields: [shippingOptionId], references: [id], onDelete: SetNull)
+  payout         Payout?               @relation(fields: [payoutId], references: [id])
+  items          OrderItem[]
+
+  @@index([orderId])
+  @@index([vendorId, status])
+  @@index([payoutId])
+  @@index([refundedAt])
+}
+
+model OrderItem {
+  id            String  @id @default(uuid())
+  vendorOrderId String
+  productId     String
+  variantId     String?
+  quantity      Int
+  priceCents    Int
+
+  vendorOrder VendorOrder     @relation(fields: [vendorOrderId], references: [id])
+  product     Product         @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([vendorOrderId])
+  @@index([productId])
+}
+
+model Promotion {
+  id           String          @id @default(uuid())
+  vendorId     String
+  productId    String?
+  type         PromotionType
+  status       PromotionStatus @default(ACTIVE)
+
+  startDate    DateTime
+  endDate      DateTime
+  priceCents   Int
+  stripePaymentId String @unique // one promotion per payment, even if confirm races
+
+  vendor  Vendor   @relation(fields: [vendorId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+  @@index([status, endDate])
+  @@index([createdAt])
+}
+
+model Review {
+  id        String @id @default(uuid())
+  userId    String
+  vendorId  String?
+  productId String?
+  rating    Int    // 1–5
+  comment   String?
+
+  // Public reply from the vendor, shown beneath the review on the storefront.
+  vendorReply     String?
+  vendorRepliedAt DateTime?
+
+  user    User    @relation(fields: [userId], references: [id])
+  vendor  Vendor? @relation(fields: [vendorId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  // One review per customer per product; vendorId is always populated
+  // alongside productId (derived from the product) so Vendor.reviews
+  // naturally aggregates every review left on that vendor's products.
+  @@unique([userId, productId])
+  @@index([vendorId, createdAt])
+  @@index([productId])
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Persists the exact order-creation request alongside its PaymentIntent so the
+// Stripe webhook can create the Order even if the client never calls back
+// after payment succeeds (tab closed, network drop, etc). Deleted once the
+// Order is created, by whichever path (client or webhook) gets there first.
+model PendingOrder {
+  id              String   @id @default(uuid())
+  paymentIntentId String   @unique
+  userId          String
+  payload         Json
+
+  createdAt DateTime @default(now())
+}
+
+model Configuration {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum PayoutStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PayoutInitiator {
+  VENDOR
+  ADMIN
+}
+
+model Payout {
+  id               String          @id @default(uuid())
+  vendorId         String
+  amountCents      Int
+  status           PayoutStatus    @default(PENDING)
+  stripeTransferId String?         @unique
+  failureReason    String?
+  initiatedBy      PayoutInitiator @default(VENDOR)
+
+  vendor Vendor        @relation(fields: [vendorId], references: [id])
+  orders VendorOrder[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([vendorId, status])
+  @@index([status, createdAt])
+}
+
+// In-app dashboard notifications. One row per recipient (admin broadcasts
+// fan out to every admin user at creation time) so read state is per-user.
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String    // e.g. ORDER_NEW, STOCK_LOW, VENDOR_APPLICATION — see NotificationType
+  severity  String    @default("info") // info | success | warning | critical
+  title     String
+  body      String?
+  link      String?   // in-app path the notification points to
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+// Audit trail of important actions (mostly administrative). Marketplace events
+// that already have their own rows (orders, registrations, products) are read
+// straight from those tables for the activity feed rather than duplicated here.
+model ActivityLog {
+  id         String   @id @default(uuid())
+  actorId    String?  // null for system actions (webhooks, scheduled jobs)
+  actorRole  String?
+  action     String   // e.g. VENDOR_APPROVED, ORDER_REFUNDED, CONFIG_UPDATED
+  entityType String?
+  entityId   String?
+  summary    String
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+}
+
+// Privacy-conscious product view counter: one aggregate row per product per
+// reporting-timezone day. No IP, user id or user agent is ever stored —
+// deduplication happens in memory with a salted hash that is discarded daily.
+model ProductViewDaily {
+  id        String   @id @default(uuid())
+  productId String
+  vendorId  String
+  day       DateTime @db.Date
+  views     Int      @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor  Vendor  @relation(fields: [vendorId], references: [id])
+
+  @@unique([productId, day])
+  @@index([vendorId, day])
+}
+
+enum PaymentIncidentType {
+  PAYMENT_FAILED
+  DISPUTE
+}
+
+// Stripe-side payment problems the marketplace does not otherwise record
+// (orders only exist for successful payments). Keyed by Stripe object id so
+// replayed webhook deliveries update rather than duplicate.
+model PaymentIncident {
+  id              String              @id @default(uuid())
+  type            PaymentIncidentType
+  stripeObjectId  String              @unique // PaymentIntent id (failures) or Dispute id
+  paymentIntentId String?
+  amountCents     Int
+  status          String              // failure code / dispute status
+  reason          String?
+  userId          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type, createdAt])
+}

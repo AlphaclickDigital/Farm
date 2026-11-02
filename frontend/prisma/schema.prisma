@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  VENDOR
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PromotionType {
+  FEATURED_PRODUCT
+  FEATURED_VENDOR
+}
+
+enum PromotionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String   @unique
+  password  String?
+  role      Role     @default(CUSTOMER)
+
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  vendor    Vendor?
+  orders    Order[]
+  reviews   Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Vendor {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  storeName   String
+  description String?
+  photo       String?
+  coverPhoto  String?
+  isApproved  Boolean  @default(false)
+
+  stripeAccount StripeAccount?
+  products     Product[]
+  orders       VendorOrder[]
+  promotions   Promotion[]
+  reviews      Review[]
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StripeAccount {
+  id              String @id @default(uuid())
+  vendorId        String @unique
+  stripeAccountId String
+  chargesEnabled  Boolean @default(false)
+  payoutsEnabled  Boolean @default(false)
+
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+}
+
+model Category {
+  id       String   @id @default(uuid())
+  name     String
+  slug     String   @unique
+
+  products Product[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  vendorId    String
+  categoryId  String
+
+  name        String
+  slug        String   @unique
+  description String?
+  baseUnit    String   // gram, ml, piece
+  stockAmount Int      // stored in base unit
+  isActive    Boolean  @default(true)
+
+  discountName   String?
+  discountCents  Int?
+  discountEndsAt DateTime?
+
+  vendor      Vendor   @relation(fields: [vendorId], references: [id])
+  category    Category @relation(fields: [categoryId], references: [id])
+  images      ProductImage[]
+  variants    ProductVariant[]
+  orderItems  OrderItem[]
+  promotions  Promotion[]
+  reviews     Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductVariant {
+  id         String  @id @default(uuid())
+  productId  String
+  label      String  // "500g Pack", "1kg Pack", "Dozen Eggs"
+  unitAmount Int     // how much base unit this uses
+  priceCents Int
+  isActive   Boolean @default(true)
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+}
+
+model ProductImage {
+  id        String @id @default(uuid())
+  productId String
+  url       String
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  userId           String
+  stripePaymentId  String
+  totalAmountCents Int
+  status           OrderStatus @default(PAID)
+
+  user        User          @relation(fields: [userId], references: [id])
+  vendorOrders VendorOrder[]
+
+  createdAt DateTime @default(now())
+}
+
+model VendorOrder {
+  id               String      @id @default(uuid())
+  orderId          String
+  vendorId         String
+  subtotalCents    Int
+  commissionCents  Int
+  payoutCents      Int
+  status           OrderStatus @default(PROCESSING)
+
+  order       Order       @relation(fields: [orderId], references: [id])
+  vendor      Vendor      @relation(fields: [vendorId], references: [id])
+  items       OrderItem[]
+}
+
+model OrderItem {
+  id            String  @id @default(uuid())
+  vendorOrderId String
+  productId     String
+  variantId     String?
+  quantity      Int
+  priceCents    Int
+
+  vendorOrder VendorOrder     @relation(fields: [vendorOrderId], references: [id])
+  product     Product         @relation(fields: [productId], references: [id])
+  variant     ProductVariant? @relation(fields: [variantId], references: [id])
+}
+
+model Promotion {
+  id           String          @id @default(uuid())
+  vendorId     String
+  productId    String?
+  type         PromotionType
+  status       PromotionStatus @default(ACTIVE)
+
+  startDate    DateTime
+  endDate      DateTime
+  priceCents   Int
+  stripePaymentId String
+
+  vendor  Vendor   @relation(fields: [vendorId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id        String @id @default(uuid())
+  userId    String
+  vendorId  String?
+  productId String?
+  rating    Int    // 1–5
+  comment   String?
+
+  user    User    @relation(fields: [userId], references: [id])
+  vendor  Vendor? @relation(fields: [vendorId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
