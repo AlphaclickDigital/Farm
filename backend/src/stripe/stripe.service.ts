@@ -161,17 +161,32 @@ export class StripeService {
   // the controller can trigger cross-module side effects (e.g. order
   // reconciliation in PaymentModule) without StripeModule depending on them.
   async handleWebhook(signature: string, body: Buffer): Promise<Stripe.Event> {
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
+    // In live mode Stripe delivers platform events (payments, disputes) and
+    // connected-account events (account.updated) through separate endpoints,
+    // each with its own signing secret. Both point here, so accept either.
+    const webhookSecrets = [
+      this.configService.get<string>('STRIPE_WEBHOOK_SECRET'),
+      this.configService.get<string>('STRIPE_CONNECT_WEBHOOK_SECRET'),
+    ].filter((secret): secret is string => !!secret);
 
-    if (!webhookSecret) {
+    if (webhookSecrets.length === 0) {
       throw new BadRequestException('Webhook secret not configured');
     }
 
-    let event: Stripe.Event;
-    try {
-      event = this.stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } catch (err) {
-      throw new BadRequestException(`Webhook signature verification failed: ${err.message}`);
+    let event: Stripe.Event | undefined;
+    let verifyError: unknown;
+    for (const secret of webhookSecrets) {
+      try {
+        event = this.stripe.webhooks.constructEvent(body, signature, secret);
+        break;
+      } catch (err) {
+        verifyError = err;
+      }
+    }
+    if (!event) {
+      throw new BadRequestException(
+        `Webhook signature verification failed: ${(verifyError as Error).message}`,
+      );
     }
 
     // Handle Connect account events

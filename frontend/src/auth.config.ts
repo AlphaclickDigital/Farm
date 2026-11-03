@@ -95,7 +95,10 @@ export default {
         session.user.role = (token.role as string) || "CUSTOMER"
 
         const { SignJWT } = await import("jose")
-        const secret = process.env.AUTH_SECRET || "secret"
+        // Must match the backend's AUTH_SECRET, which verifies this token.
+        // No fallback: a guessable default would let anyone mint API tokens.
+        const secret = process.env.AUTH_SECRET
+        if (!secret) throw new Error("AUTH_SECRET is not set")
         const encodedSecret = new TextEncoder().encode(secret)
 
         const accessToken = await new SignJWT({
