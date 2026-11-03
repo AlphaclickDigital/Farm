@@ -8,7 +8,10 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
+  // Used only by the Prisma CLI (migrate, studio). Neon's pooler (PgBouncer,
+  // transaction mode) breaks migrations, so prefer the direct string when it's
+  // set. The running app connects through PrismaService with DATABASE_URL.
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: process.env["DATABASE_URL_UNPOOLED"] ?? process.env["DATABASE_URL"],
   },
 });

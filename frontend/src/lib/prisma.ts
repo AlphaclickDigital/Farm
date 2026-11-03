@@ -1,9 +1,15 @@
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
+import { attachDatabasePool } from "@vercel/functions"
+import { Pool } from "pg"
 
 const prismaClientSingleton = () => {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-  return new PrismaClient({ adapter })
+  // DATABASE_URL is Neon's pooled (-pooler) string in deployed environments.
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+  // On Vercel Fluid compute, keeps the function alive until idle clients are
+  // released so connections aren't leaked on suspend. No-op anywhere else.
+  attachDatabasePool(pool)
+  return new PrismaClient({ adapter: new PrismaPg(pool) })
 }
 
 declare global {
