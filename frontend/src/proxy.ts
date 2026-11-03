@@ -1,3 +1,6 @@
+// Next 16 "proxy" (formerly middleware). It runs on Node.js, not Edge: the
+// auth config pulls in Prisma + pg for the role refresh, which Edge can neither
+// run nor fit in its 1 MB function limit on Vercel Hobby.
 import NextAuth from "next-auth"
 import authConfig from "./auth.config"
 
